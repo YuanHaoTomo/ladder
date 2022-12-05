@@ -26,7 +26,7 @@ public class Domian {
     }
 
 
-    @Retryable(value = Exception.class, maxAttempts = 10, backoff = @Backoff(delay = 60000) )
+    @Retryable(value = Exception.class, maxAttempts = 5, backoff = @Backoff(delay = 15000) )
 	public boolean IsConnectionRetry(String host) throws Exception {
     	if(!isConnection(host)){
     		throw new Exception("。。。");

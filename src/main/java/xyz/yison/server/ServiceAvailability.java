@@ -47,7 +47,7 @@ public class ServiceAvailability implements CommandLineRunner {
 
 	@SneakyThrows
 	private void job(){
-		if(domian.IsConnectionRetry(sSDomainPing)){
+		if(domian.isConnection(sSDomainPing)){
 			return;
 		}
 		if(!domian.isConnection(cnDomianPing)){
@@ -68,6 +68,7 @@ public class ServiceAvailability implements CommandLineRunner {
 				slack.sendMsg(String.format("删除了多余的自动创建的linode实例"));
 			}else{
 				slack.sendMsg(String.format("新实例ip：%s一直无法ping通，等待再次尝试创建新实例...", newLinode.getIpv4().get(0)));
+				job();
 			}
 
 
