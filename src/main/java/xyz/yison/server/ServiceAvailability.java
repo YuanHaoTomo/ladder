@@ -1,6 +1,6 @@
 package xyz.yison.server;
 
-import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -10,13 +10,14 @@ import xyz.yison.pojo.ImageVo;
 import xyz.yison.pojo.LinodeTypeVo;
 import xyz.yison.pojo.LinodeVo;
 
+@Slf4j
 @Component
 public class ServiceAvailability implements CommandLineRunner {
 
 	@Autowired
 	private Dns dns;
 	@Autowired
-	private Domian domian;
+	private Ping ping;
 	@Autowired
 	private Linode linode;
 	@Autowired
@@ -37,20 +38,32 @@ public class ServiceAvailability implements CommandLineRunner {
     	slack.sendMsg(String.format("检测服务启动完成，开始持续检测梯子服务状态..."));
 		while (true){
 			try {
+				deleteUnwantedVps();
+				job();
 				Thread.sleep(detectionOfConnectivityTimeIntervalSec*1000);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+			} catch (Exception e) {
+				log.error("发生了异常：", e);
 			}
-			job();
 		}
 	}
 
-	@SneakyThrows
-	private void job(){
-		if(domian.isConnection(sSDomainPing)){
+	/**
+	 * 删除不需要的多余实例
+	 */
+	private void deleteUnwantedVps() {
+		DnsVo dnsVo=dns.getDnsInfo(sSDomainPing);
+		boolean flag=linode.deleteVpsExcludeIp(dnsVo.getContent());
+		if(flag){
+			slack.sendMsg(String.format("删除了多余的自动创建的linode实例"));
+		}
+	}
+
+	private void job() throws Exception {
+    	DnsVo dnsVo=dns.getDnsInfo(sSDomainPing);
+		if(ping.IsConnectionRetry(dnsVo.getContent())){
 			return;
 		}
-		if(!domian.isConnection(cnDomianPing)){
+		if(!ping.IsConnectionRetry(cnDomianPing)){
 			return;
 		}
 		slack.sendMsg(String.format("检测到%s域名无法ping通，开始准备创建新实例...", sSDomainPing));
@@ -59,19 +72,13 @@ public class ServiceAvailability implements CommandLineRunner {
 		LinodeVo newLinode=linode.createVps(imageVo.getId(), linodeTypeVo.getId());
 		slack.sendMsg(String.format("新实例创建完成，ip：%s,等待实例启动完成...", newLinode.getIpv4().get(0)));
 		if(linode.newVpsIsRunning(newLinode.getId())){
-			if(domian.IsConnectionRetry(newLinode.getIpv4().get(0))){
-				DnsVo dnsVo=dns.getDnsInfo(sSDomainPing);
+			if(ping.IsConnectionRetry(newLinode.getIpv4().get(0))){
 				dns.updateDnsRecord(dnsVo.getZone_id(), dnsVo.getId(), newLinode.getIpv4().get(0));
 				slack.sendMsg(String.format("实例启动完成，已经将域名%s解析到新的IP：%s", sSDomainPing, newLinode.getIpv4().get(0)));
-
-				linode.deleteVps(newLinode.getId());
-				slack.sendMsg(String.format("删除了多余的自动创建的linode实例"));
 			}else{
 				slack.sendMsg(String.format("新实例ip：%s一直无法ping通，等待再次尝试创建新实例...", newLinode.getIpv4().get(0)));
 				job();
 			}
-
-
 		}
 	}
 

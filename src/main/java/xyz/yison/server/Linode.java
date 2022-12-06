@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -154,6 +155,10 @@ public class Linode {
         List<ImageVo> linodeVoList= responseEntity.getBody().getList("data", ImageVo.class);
     }
 
+    /**
+     * 删除除指定实例id之外的auto开头标签的实例
+     * @param excludeVpsId
+     */
     public void deleteVps(String excludeVpsId) {
         List<LinodeVo> linodeVoList= getVpsList();
         for (LinodeVo linode: linodeVoList) {
@@ -164,6 +169,25 @@ public class Linode {
                 deleteVpsById(linode.getId());
             }
         }
+    }
+
+    /**
+     * 删除除指定实例ip之外的auto开头标签的实例
+     * @param excludeIp
+     */
+    public boolean deleteVpsExcludeIp(String excludeIp) {
+        boolean flag=false;
+        List<LinodeVo> linodeVoList= getVpsList();
+        for (LinodeVo linode: linodeVoList) {
+            if(!linode.getLabel().startsWith("auto")){
+                continue;
+            }
+            if(!excludeIp.equals(linode.getIpv4().get(0))){
+                deleteVpsById(linode.getId());
+                flag=true;
+            }
+        }
+        return flag;
     }
 
 
@@ -184,4 +208,11 @@ public class Linode {
 		}
     	return true;
 	}
+
+
+
+	@Recover
+    public boolean recover(Exception e) {
+        return false;
+    }
 }

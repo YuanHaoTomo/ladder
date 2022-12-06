@@ -1,6 +1,7 @@
 package xyz.yison.server;
 
 import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
@@ -9,7 +10,7 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 
 @Component
-public class Domian {
+public class Ping {
 
     public boolean isConnection(String host){
         try {
@@ -26,11 +27,16 @@ public class Domian {
     }
 
 
-    @Retryable(value = Exception.class, maxAttempts = 5, backoff = @Backoff(delay = 15000) )
+    @Retryable(value = Exception.class, maxAttempts = 3, backoff = @Backoff(delay = 5000) )
 	public boolean IsConnectionRetry(String host) throws Exception {
     	if(!isConnection(host)){
     		throw new Exception("。。。");
 		}
     	return true;
 	}
+
+	@Recover
+    public boolean recover(Exception e) {
+        return false;
+    }
 }
