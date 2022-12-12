@@ -1,7 +1,10 @@
 package xyz.yison.server;
 
 import com.alibaba.fastjson2.JSONObject;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -14,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 
 @Component
+@Slf4j
 public class Dns {
 
     @Value("${cloudflare.baseUrl}")
@@ -33,6 +37,7 @@ public class Dns {
         return headers;
     }
 
+    @CacheEvict(value="dns",allEntries=true)
     public JSONObject updateDnsRecord(String zoneId, String dnsId, String ip) {
         String url = baseUrl+"/zones/"+zoneId+"/dns_records/"+dnsId;
         HttpHeaders headers = getHttpHeaders();
@@ -47,7 +52,9 @@ public class Dns {
         return responseEntity.getBody();
     }
 
+    @Cacheable(value = "dns" ,key = "#dnsName")
     public DnsVo getDnsInfo(String dnsName) {
+        log.info("进入查询域名dns信息方法，查询域名：{}", dnsName);
         String url = baseUrl+"/zones/"+zoneId+"/dns_records?name="+dnsName;
         HttpHeaders headers = getHttpHeaders();
         HttpEntity<HashMap<String, String>> httpEntity = new HttpEntity<>(null, headers);
